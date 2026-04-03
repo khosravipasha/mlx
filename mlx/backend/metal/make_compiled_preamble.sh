@@ -35,24 +35,40 @@ CCC="xcrun -sdk macosx metal -x metal"
 HDRS=$( $CCC -I"$SRC_DIR" -I"$JIT_INCLUDES" -DMLX_METAL_JIT -E -P -CC -C -H "$INPUT_FILE" $CFLAGS -w 2>&1 1>/dev/null )
 
 # Remove any included system frameworks (for MetalPerformancePrimitive headers)
-HDRS=$(echo "$HDRS" | grep -v "Xcode")
+# and keep only the dependency lines reported by `-H`.
+HDRS=$(echo "$HDRS" | grep '^\.\+ ' | grep -v "Xcode")
 
-# Use the header depth to sort the files in order of inclusion
-declare -a HDRS_LIST=($HDRS)
+# Use the header depth to sort the files in order of inclusion.
+# Important: keep one include record per array element so paths containing
+# spaces are preserved.
+declare -a HDRS_LIST=()
 declare -a HDRS_STACK=()
 declare -a HDRS_SORTED=()
+
+while IFS= read -r line; do
+  [ -n "$line" ] && HDRS_LIST+=("$line")
+done <<EOF
+$HDRS
+EOF
 
 length=${#HDRS_LIST[@]}
 
 HDRS_LIST+=(".")
 
-for ((i=0; i<${length}; i+=2));
+for ((i=0; i<${length}; i++));
 do 
+  line_this="${HDRS_LIST[$i]}"
+  line_next="${HDRS_LIST[$((i + 1))]}"
 
-  header="${HDRS_LIST[$i+1]#$SRC_DIR/}"
+  str_this="${line_this%% *}"
+  header="${line_this#* }"
+  header="${header#$SRC_DIR/}"
 
-  str_this="${HDRS_LIST[$i]}"
-  str_next="${HDRS_LIST[$i + 2]}"
+  if [ "$line_next" = "." ]; then
+    str_next="."
+  else
+    str_next="${line_next%% *}"
+  fi
 
   depth_this=${#str_this}
   depth_next=${#str_next}
