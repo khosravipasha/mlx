@@ -61,6 +61,27 @@ void init_stream(nb::module_& m) {
             s == nb::cast<mx::Stream>(other);
       });
 
+  nb::class_<mx::ThreadLocalStream>(
+      m,
+      "ThreadLocalStream",
+      R"pbdoc(
+      A stream that will be unique per thread and can be used to run operations on a given device.
+      )pbdoc")
+      .def_ro("device", &mx::ThreadLocalStream::device)
+      .def(
+          "__repr__",
+          [](const mx::ThreadLocalStream& s) {
+            std::ostringstream os;
+            os << "ThreadLocalStream(" << s.device << ", " << s.index << ")";
+            return os.str();
+          })
+      .def(
+          "__eq__",
+          [](const mx::ThreadLocalStream& s, const nb::object& other) {
+            return nb::isinstance<mx::ThreadLocalStream>(other) &&
+                s == nb::cast<mx::ThreadLocalStream>(other);
+          });
+
   nb::implicitly_convertible<mx::Device::DeviceType, mx::Device>();
 
   m.def(
@@ -86,6 +107,15 @@ void init_stream(nb::module_& m) {
       &mx::new_stream,
       "device"_a,
       R"pbdoc(Make a new stream on the given device.)pbdoc");
+  m.def(
+      "new_thread_local_stream",
+      &mx::new_thread_local_stream,
+      "device"_a,
+      R"pbdoc(Make a new stream that will be unique per thread.)pbdoc");
+  m.def(
+      "clear_streams",
+      &mx::clear_streams,
+      R"pbdoc(Destroy all streams created in current thread.)pbdoc");
 
   nb::class_<PyStreamContext>(m, "StreamContext", R"pbdoc(
         A context manager for setting the current device and stream.

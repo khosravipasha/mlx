@@ -597,6 +597,26 @@ class TestArray(mlx_tests.MLXTestCase):
         x = mx.array([1 - 1j], dtype=mx.complex64)
         expected = "array([1-1j], dtype=complex64)"
 
+    def test_array_repr_precision(self):
+        x = mx.array([1.123456789], dtype=mx.float32)
+        expected = "array([1.12346], dtype=float32)"
+        self.assertEqual(str(x), expected)
+
+        with mx.printoptions(precision=4):
+            expected = "array([1.1235], dtype=float32)"
+            self.assertEqual(str(x), expected)
+        mx.set_printoptions(precision=2)
+        expected = "array([1.12], dtype=float32)"
+        self.assertEqual(str(x), expected)
+
+        x = mx.sin(x)
+        expected = "array([0.90], dtype=float32)"
+        self.assertEqual(str(x), expected)
+
+        with mx.printoptions(precision=4):
+            expected = "array([0.9016], dtype=float32)"
+            self.assertEqual(str(x), expected)
+
     def test_array_to_list(self):
         types = [mx.bool_, mx.uint32, mx.int32, mx.int64, mx.float32]
         for t in types:
@@ -1781,6 +1801,15 @@ class TestArray(mlx_tests.MLXTestCase):
         self.assertIsNotNone(wr())
         a_np = None
         self.assertIsNone(wr())
+
+    def test_create_from_buffer(self):
+        x = mx.array(b"Hello")
+        self.assertEqual(x.dtype, mx.uint8)
+        self.assertEqual(x.tolist(), [72, 101, 108, 108, 111])
+
+        x = mx.array(bytearray([1, 2, 3]))
+        self.assertEqual(x.dtype, mx.uint8)
+        self.assertEqual(x.tolist(), [1, 2, 3])
 
     @unittest.skipIf(not has_tf, "requires TensorFlow")
     def test_buffer_protocol_tf(self):
