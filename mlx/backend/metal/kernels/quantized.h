@@ -901,24 +901,24 @@ METAL_FUNC void qmv_fast_impl(
     x += block_size;
   }
 
+  // Tail block: handles K that is a multiple of 512 (dispatch gate) but not
+  // of block_size. Only 1-bit has block_size > 512 (it uses 2048), so for
+  // >=2-bit this is a no-op. Out-of-bounds lanes skip the qdot call entirely;
+  // their result[row] stays at 0 and contributes 0 to the simd_sum below.
   if (aligned_end < in_vec_size) {
     bool in_bounds = (aligned_end + simd_lid * values_per_thread) < in_vec_size;
-    U sum = 0;
     if (in_bounds) {
-      sum = load_vector<T, U, values_per_thread, bits>(x, x_thread);
-    } else {
-      for (int i = 0; i < values_per_thread; i++)
-        x_thread[i] = 0;
-    }
+      U sum = load_vector<T, U, values_per_thread, bits>(x, x_thread);
 
-    for (int row = 0; row < results_per_simdgroup; row++) {
-      auto wl = (const device uint8_t*)(ws + row * in_vec_size_w);
-      const device T* sl = scales + row * in_vec_size_g;
-      const device T* bl = biases + row * in_vec_size_g;
+      for (int row = 0; row < results_per_simdgroup; row++) {
+        auto wl = (const device uint8_t*)(ws + row * in_vec_size_w);
+        const device T* sl = scales + row * in_vec_size_g;
+        const device T* bl = biases + row * in_vec_size_g;
 
-      U s = in_bounds ? (U)sl[0] : (U)0;
-      U b = in_bounds ? (U)bl[0] : (U)0;
-      result[row] += qdot<U, values_per_thread, bits>(wl, x_thread, s, b, sum);
+        U s = sl[0];
+        U b = bl[0];
+        result[row] += qdot<U, values_per_thread, bits>(wl, x_thread, s, b, sum);
+      }
     }
   }
 
